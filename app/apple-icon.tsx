@@ -1,7 +1,6 @@
 import { ImageResponse } from "next/og";
 import { botMarkDataUri } from "@/lib/botMark";
 
-// iOS home-screen icon. Generated so it always matches the favicon.
 export const size = { width: 180, height: 180 };
 export const contentType = "image/png";
 

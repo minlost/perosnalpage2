@@ -1,8 +1,5 @@
 import type { NextConfig } from "next";
 
-/** Security headers applied to every route. Conservative on purpose — no CSP,
- *  since next/font, framer-motion, and the inline JSON-LD would need a nonce
- *  pipeline to stay safe under a strict policy. */
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },

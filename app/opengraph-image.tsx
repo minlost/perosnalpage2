@@ -22,12 +22,10 @@ export default function OpengraphImage() {
         background: "#000000",
         color: "#ededed",
         fontFamily: "monospace",
-        // CRT scanlines
         backgroundImage:
           "repeating-linear-gradient(0deg, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 1px, transparent 2px, transparent 4px)",
       }}
     >
-      {/* top: boot line */}
       <div
         style={{
           display: "flex",
@@ -39,7 +37,6 @@ export default function OpengraphImage() {
         {`~/ ${host}`}
       </div>
 
-      {/* center: headline + bot */}
       <div
         style={{
           display: "flex",
@@ -69,7 +66,6 @@ export default function OpengraphImage() {
         <img width={240} height={240} src={botMarkDataUri("#ededed")} alt="" />
       </div>
 
-      {/* bottom: name + tagline */}
       <div
         style={{
           display: "flex",

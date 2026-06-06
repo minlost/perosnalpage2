@@ -1,8 +1,3 @@
-/**
- * The pixel-bot mark as a standalone SVG string (transparent background, so it
- * can sit on any color). Shared by the generated apple-icon and OG images so
- * the brand stays identical to app/icon.svg. `tone` sets the bot color.
- */
 export function botMark(tone = "#ededed"): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" shape-rendering="crispEdges">
     <rect x="11" y="2" width="2" height="4" fill="${tone}"/>
@@ -15,8 +10,6 @@ export function botMark(tone = "#ededed"): string {
   </svg>`;
 }
 
-/** SVG string as a UTF-8 data URI usable in an <img src>. Runtime-agnostic
- *  (no Buffer/btoa), so it works under both the Node and Edge runtimes. */
 export function botMarkDataUri(tone?: string): string {
   return `data:image/svg+xml,${encodeURIComponent(botMark(tone))}`;
 }

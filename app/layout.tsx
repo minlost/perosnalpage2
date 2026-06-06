@@ -66,7 +66,6 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-/** schema.org Person — helps search engines render a rich author entity. */
 const personJsonLd = {
   "@context": "https://schema.org",
   "@type": "Person",
@@ -86,7 +85,6 @@ export default function RootLayout({
         {children}
         <script
           type="application/ld+json"
-          // JSON.stringify output is trusted (built from static config), not user input.
           dangerouslySetInnerHTML={{ __html: JSON.stringify(personJsonLd) }}
         />
       </body>
