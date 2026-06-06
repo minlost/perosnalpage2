@@ -62,6 +62,26 @@ Easter eggs:
 
 ## Make it yours
 
-All copy and links live in [lib/site.ts](lib/site.ts) — headline (use `\n` for
-line breaks), intro, and contact links. Tune bot feel via the constants at the
-top of [components/BotField.tsx](components/BotField.tsx).
+All copy, links, and SEO metadata live in [lib/site.ts](lib/site.ts) — the
+single source of truth. Edit the `site` object (name, title, description,
+keywords, headline, intro, links) and everything downstream updates. Tune bot
+feel via the constants at the top of [components/BotField.tsx](components/BotField.tsx).
+
+## SEO & production
+
+Driven entirely from [lib/site.ts](lib/site.ts):
+
+- **Metadata** — title template, canonical URL, Open Graph + Twitter cards, and
+  schema.org `Person` JSON-LD ([app/layout.tsx](app/layout.tsx)).
+- **`/sitemap.xml`** and **`/robots.txt`** — generated metadata routes
+  ([app/sitemap.ts](app/sitemap.ts), [app/robots.ts](app/robots.ts)).
+- **Icons & social image** — favicon ([app/icon.svg](app/icon.svg)), generated
+  Apple touch icon, and a 1200×630 Open Graph / Twitter image rendered with
+  `next/og` ([app/opengraph-image.tsx](app/opengraph-image.tsx)), plus a PWA
+  [manifest](app/manifest.ts).
+- **Security headers** — set for every route in [next.config.ts](next.config.ts)
+  (`X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`,
+  `Permissions-Policy`, HSTS); `X-Powered-By` is disabled.
+
+The production origin defaults to `https://vaclavvlcek.cz`. Override per
+environment with `NEXT_PUBLIC_SITE_URL` (no trailing slash).

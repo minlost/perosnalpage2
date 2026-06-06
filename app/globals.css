@@ -81,20 +81,253 @@ button:focus-visible {
   cursor: grabbing;
 }
 
-/* 2-frame stepped idle bob — deliberately chunky, retro-game feel */
-@keyframes idle-bob {
+/* ---- walk cycle -------------------------------------------------- */
+/* Body waddle: a stepped side-to-side sway + a little hop on each foot
+   fall. Pivots around the feet so it reads as walking, not floating.
+   Duration is driven per-bot from real movement speed via --walk-dur. */
+@keyframes bot-walk {
   0% {
-    transform: translateY(0px);
+    transform: translateY(0px) rotate(-3deg);
+  }
+  25% {
+    transform: translateY(-2px) rotate(0deg);
   }
   50% {
-    transform: translateY(2px);
+    transform: translateY(0px) rotate(3deg);
   }
+  75% {
+    transform: translateY(-2px) rotate(0deg);
+  }
+  100% {
+    transform: translateY(0px) rotate(-3deg);
+  }
+}
+.bot-anim {
+  width: 100%;
+  height: 100%;
+  transform-origin: 50% 90%;
+  animation: bot-walk var(--walk-dur, 0.7s) steps(4, end) infinite;
+  animation-delay: var(--walk-delay, 0s);
+}
+
+/* Legs alternate up/down — the actual footsteps. Synced to the body by
+   sharing --walk-dur and --walk-delay. */
+@keyframes bot-step-l {
+  0%,
+  50% {
+    transform: translateY(-1.5px);
+  }
+  51%,
   100% {
     transform: translateY(0px);
   }
 }
-.bot-bob {
-  animation: idle-bob 0.9s steps(2, end) infinite;
+@keyframes bot-step-r {
+  0%,
+  50% {
+    transform: translateY(0px);
+  }
+  51%,
+  100% {
+    transform: translateY(-1.5px);
+  }
+}
+.bot-leg-l {
+  animation: bot-step-l var(--walk-dur, 0.7s) steps(2, end) infinite;
+  animation-delay: var(--walk-delay, 0s);
+}
+.bot-leg-r {
+  animation: bot-step-r var(--walk-dur, 0.7s) steps(2, end) infinite;
+  animation-delay: var(--walk-delay, 0s);
+}
+
+/* ---- directional views ------------------------------------------ */
+/* Three stacked sprites; the physics loop picks one via data-dir. */
+.bot-front,
+.bot-back,
+.bot-side,
+.bot-dir-always {
+  position: absolute;
+  inset: 0;
+}
+.bot-front,
+.bot-back,
+.bot-side {
+  display: none;
+}
+.bot[data-dir="down"] .bot-front,
+.bot[data-dir="up"] .bot-back,
+.bot[data-dir="left"] .bot-side,
+.bot[data-dir="right"] .bot-side {
+  display: block;
+}
+/* mirror the profile when walking left */
+.bot[data-dir="left"] .bot-side {
+  transform: scaleX(-1);
+}
+
+/* profile stride — legs/arm swing forward & back instead of up & down */
+@keyframes bot-stride-f {
+  0%,
+  50% {
+    transform: translateX(1.5px);
+  }
+  51%,
+  100% {
+    transform: translateX(-1.5px);
+  }
+}
+@keyframes bot-stride-b {
+  0%,
+  50% {
+    transform: translateX(-1.5px);
+  }
+  51%,
+  100% {
+    transform: translateX(1.5px);
+  }
+}
+.bot-leg-f {
+  animation: bot-stride-f var(--walk-dur, 0.7s) steps(2, end) infinite;
+  animation-delay: var(--walk-delay, 0s);
+}
+.bot-leg-b,
+.bot-arm-s {
+  animation: bot-stride-b var(--walk-dur, 0.7s) steps(2, end) infinite;
+  animation-delay: var(--walk-delay, 0s);
+}
+
+/* ---- idle: standing between walks, slow breathing, legs still ----- */
+@keyframes bot-idle {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-1px);
+  }
+}
+.bot[data-act="idle"] .bot-anim {
+  animation: bot-idle 1.8s steps(2, end) infinite;
+}
+
+/* ---- sleep: napping, slower breathing, eyes shut, "z" floats ------ */
+@keyframes bot-sleep {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-1.5px);
+  }
+}
+.bot[data-act="sleep"] .bot-anim {
+  animation: bot-sleep 2.8s steps(3, end) infinite;
+}
+
+/* legs hold still while idling or sleeping */
+.bot[data-act="idle"] .bot-leg-l,
+.bot[data-act="idle"] .bot-leg-r,
+.bot[data-act="idle"] .bot-leg-f,
+.bot[data-act="idle"] .bot-leg-b,
+.bot[data-act="idle"] .bot-arm-s,
+.bot[data-act="sleep"] .bot-leg-l,
+.bot[data-act="sleep"] .bot-leg-r,
+.bot[data-act="sleep"] .bot-leg-f,
+.bot[data-act="sleep"] .bot-leg-b,
+.bot[data-act="sleep"] .bot-arm-s {
+  animation: none;
+}
+
+/* closed eyelids: hidden unless the bot is asleep */
+.bot-eyelids {
+  display: none;
+}
+.bot[data-act="sleep"] .bot-eyelids {
+  display: block;
+}
+
+/* the floating sleep "z" */
+.bot-zzz {
+  position: absolute;
+  top: -4px;
+  right: -3px;
+  display: none;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--color-dim);
+  pointer-events: none;
+}
+.bot[data-act="sleep"] .bot-zzz {
+  display: block;
+  animation: bot-zzz 2.4s steps(8, end) infinite;
+}
+@keyframes bot-zzz {
+  0% {
+    opacity: 0;
+    transform: translateY(2px) scale(0.8);
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-12px) scale(1.1);
+  }
+}
+
+/* ---- panic: grabbed! flails its legs and trembles ---------------- */
+@keyframes bot-shake {
+  0% {
+    transform: translate(-0.5px, 0) rotate(-3deg);
+  }
+  25% {
+    transform: translate(0.5px, -0.5px) rotate(3deg);
+  }
+  50% {
+    transform: translate(-0.5px, 0.5px) rotate(-2deg);
+  }
+  75% {
+    transform: translate(0.5px, 0) rotate(2deg);
+  }
+  100% {
+    transform: translate(-0.5px, 0) rotate(-3deg);
+  }
+}
+@keyframes bot-flail-a {
+  0% {
+    transform: translateY(-2px);
+  }
+  50% {
+    transform: translateY(1px);
+  }
+  100% {
+    transform: translateY(-2px);
+  }
+}
+@keyframes bot-flail-b {
+  0% {
+    transform: translateY(1px);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+  100% {
+    transform: translateY(1px);
+  }
+}
+/* override the walk cycle while held — gentle wriggle, not a seizure */
+.bot.is-panic .bot-anim {
+  animation: bot-shake 0.55s steps(2, end) infinite;
+}
+.bot.is-panic .bot-leg-l,
+.bot.is-panic .bot-leg-b {
+  animation: bot-flail-a 0.45s steps(2, end) infinite;
+}
+.bot.is-panic .bot-leg-r,
+.bot.is-panic .bot-leg-f,
+.bot.is-panic .bot-arm-s {
+  animation: bot-flail-b 0.45s steps(2, end) infinite;
 }
 
 /* ------------------------------------------------------------------ */
@@ -141,13 +374,376 @@ button:focus-visible {
   animation: crt-flicker 4.2s steps(6, end) infinite;
 }
 
+/* ================================================================== */
+/*  Pseudo-console FX engine                                          */
+/*  Effects are toggled from the Terminal by adding classes to two    */
+/*  layers:                                                           */
+/*    #fx-stage  — filter-based color/blur effects (composed via vars) */
+/*    #fx-warp   — transform-based motion effects (spin/shake/…)       */
+/*  The console itself lives OUTSIDE these layers so it stays crisp.  */
+/* ================================================================== */
+
+/* animatable custom props so the rave strobe can keyframe color/glow */
+@property --fx-hue {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+@property --fx-bright {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 1;
+}
+
+#fx-stage {
+  --fx-blur: 0px;
+  --fx-invert: 0;
+  --fx-sepia: 0;
+  --fx-sat: 1;
+  --fx-hue: 0deg;
+  --fx-bright: 1;
+  --fx-contrast: 1;
+}
+
+/* the composed filter is only paid for while at least one color/blur
+   effect is on — default state stays filter-free (no perf cost) */
+#fx-stage.fx-filter {
+  filter: blur(var(--fx-blur)) invert(var(--fx-invert)) sepia(var(--fx-sepia))
+    saturate(var(--fx-sat)) hue-rotate(var(--fx-hue)) brightness(var(--fx-bright))
+    contrast(var(--fx-contrast));
+  transition: filter 0.18s steps(4, end);
+}
+
+.fx-blur {
+  --fx-blur: 3.5px;
+}
+.fx-invert {
+  --fx-invert: 1;
+}
+/* phosphor tints — a `multiply` overlay paints the bright pixels in one
+   hue while leaving the black background black (filters alone can't do
+   this on an almost-black scene). */
+#fx-stage.fx-green::before,
+#fx-stage.fx-amber::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 46;
+  pointer-events: none;
+  mix-blend-mode: multiply;
+}
+#fx-stage.fx-green::before {
+  background: #2bff7a;
+}
+#fx-stage.fx-amber::before {
+  background: #ffb000;
+}
+/* a little glow so the tint reads even on dim pixels */
+.fx-green {
+  --fx-bright: 1.15;
+  --fx-sat: 1.4;
+}
+.fx-amber {
+  --fx-bright: 1.15;
+  --fx-sat: 1.4;
+}
+
+/* disco — animated rainbow washed over everything with `screen`, which
+   lights up even the black background, so it's genuinely colorful. */
+#fx-warp.fx-disco::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 44;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  opacity: 0.6;
+  background: linear-gradient(
+    120deg,
+    #ff0040,
+    #ff8a00,
+    #ffe600,
+    #14ff72,
+    #00e5ff,
+    #6a5cff,
+    #ff00c8,
+    #ff0040
+  );
+  background-size: 300% 300%;
+  animation: fx-disco 6s linear infinite;
+}
+@keyframes fx-disco {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 300% 50%;
+  }
+}
+
+/* rave — colorful, blinky strobe (stepped for a pixel-y flicker) */
+.fx-rave {
+  --fx-sepia: 1;
+  --fx-sat: 6;
+  animation: fx-rave 0.8s steps(8, end) infinite;
+}
+@keyframes fx-rave {
+  0% {
+    --fx-hue: 0deg;
+    --fx-bright: 1.25;
+  }
+  50% {
+    --fx-hue: 180deg;
+    --fx-bright: 0.75;
+  }
+  100% {
+    --fx-hue: 360deg;
+    --fx-bright: 1.25;
+  }
+}
+
+/* crt — heavy scanlines + vignette + contrast punch */
+.fx-crt {
+  --fx-contrast: 1.25;
+  --fx-bright: 1.08;
+}
+#fx-stage.fx-crt::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 45;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.4) 0px,
+    rgba(0, 0, 0, 0.4) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  box-shadow: inset 0 0 180px 50px rgba(0, 0, 0, 0.9);
+}
+
+/* ---- transform layer ---------------------------------------------- */
+#fx-warp {
+  transform-origin: 50% 50%;
+  transition: transform 0.25s steps(4, end);
+}
+.fx-flip {
+  transform: scaleY(-1);
+}
+.fx-zoom {
+  transform: scale(1.45);
+}
+.fx-shake {
+  animation: fx-shake 0.22s steps(2, end) infinite;
+}
+@keyframes fx-shake {
+  0% {
+    transform: translate(-3px, 1px);
+  }
+  25% {
+    transform: translate(3px, -2px);
+  }
+  50% {
+    transform: translate(-2px, 2px);
+  }
+  75% {
+    transform: translate(2px, -1px);
+  }
+  100% {
+    transform: translate(-3px, 1px);
+  }
+}
+.fx-spin {
+  animation: fx-spin 11s linear infinite;
+}
+@keyframes fx-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.fx-glitch {
+  animation: fx-glitch 0.35s steps(3, end) infinite;
+}
+@keyframes fx-glitch {
+  0% {
+    transform: translate(0, 0) skewX(0deg);
+  }
+  20% {
+    transform: translate(-4px, 1px) skewX(6deg);
+  }
+  40% {
+    transform: translate(5px, -2px) skewX(-5deg);
+  }
+  60% {
+    transform: translate(-3px, 2px) skewX(3deg);
+  }
+  80% {
+    transform: translate(2px, -1px) skewX(-2deg);
+  }
+  100% {
+    transform: translate(0, 0) skewX(0deg);
+  }
+}
+
+/* ---- matrix rain overlay ------------------------------------------ */
+.fx-matrix-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 55; /* above CRT (50), below the console (60) */
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+
+/* ================================================================== */
+/*  Power switch — old-CRT turn-off / turn-on collapse                 */
+/*  The picture flattens to a bright horizontal line, snaps into a     */
+/*  centre dot, then goes dark. Powering on reverses it. State is      */
+/*  driven from <PowerScreen> by toggling classes on .tv-screen.       */
+/* ================================================================== */
+.tv-screen {
+  transform-origin: 50% 50%;
+}
+/* hold the picture gone once the collapse has finished */
+.tv-screen.is-off {
+  visibility: hidden;
+}
+.tv-screen.is-powering-off,
+.tv-screen.is-powering-on {
+  will-change: transform, filter, opacity;
+}
+.tv-screen.is-powering-off {
+  animation: tv-off 0.6s ease-in both;
+}
+.tv-screen.is-powering-on {
+  animation: tv-on 0.55s ease-out both;
+}
+
+/* vertical squeeze to a line (scaleY→0), then the line is sucked into the
+   centre (scaleX→0); brightness ramps so it glows white as it collapses */
+@keyframes tv-off {
+  0% {
+    transform: scaleX(1) scaleY(1);
+    filter: brightness(1);
+  }
+  55% {
+    transform: scaleX(1) scaleY(0.004);
+    filter: brightness(3.6);
+  }
+  72% {
+    transform: scaleX(1) scaleY(0.004);
+    filter: brightness(3.6);
+  }
+  100% {
+    transform: scaleX(0) scaleY(0.004);
+    filter: brightness(6);
+  }
+}
+@keyframes tv-on {
+  0% {
+    transform: scaleX(0) scaleY(0.004);
+    filter: brightness(6);
+  }
+  35% {
+    transform: scaleX(1) scaleY(0.004);
+    filter: brightness(3.6);
+  }
+  100% {
+    transform: scaleX(1) scaleY(1);
+    filter: brightness(1);
+  }
+}
+
+/* the bright bar: a full-width line that snaps to a centre dot (off) or a
+   dot that stretches back into a line (on). Sits above the picture so the
+   "flash" reads even though the picture itself is collapsing underneath. */
+.tv-flash {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 2px;
+  margin-top: -1px;
+  z-index: 65; /* above the console (60), below the power button (70) */
+  pointer-events: none;
+  background: var(--color-ink);
+  box-shadow: 0 0 16px 4px rgba(237, 237, 237, 0.85);
+  transform-origin: 50% 50%;
+  opacity: 0;
+}
+.tv-flash.is-powering-off {
+  animation: tv-flash-off 0.6s ease-in both;
+}
+.tv-flash.is-powering-on {
+  animation: tv-flash-on 0.55s ease-out both;
+}
+@keyframes tv-flash-off {
+  0%,
+  45% {
+    opacity: 0;
+    transform: scaleX(1) scaleY(0.5);
+  }
+  55% {
+    opacity: 1;
+    transform: scaleX(1) scaleY(1.4);
+  }
+  82% {
+    opacity: 1;
+    transform: scaleX(0.035) scaleY(1.4);
+  }
+  100% {
+    opacity: 0;
+    transform: scaleX(0) scaleY(1.4);
+  }
+}
+@keyframes tv-flash-on {
+  0% {
+    opacity: 1;
+    transform: scaleX(0.035) scaleY(1.4);
+  }
+  35% {
+    opacity: 1;
+    transform: scaleX(1) scaleY(1.4);
+  }
+  70% {
+    opacity: 0.8;
+    transform: scaleX(1) scaleY(0.6);
+  }
+  100% {
+    opacity: 0;
+    transform: scaleX(1) scaleY(0.3);
+  }
+}
+
+/* power button glows gently while the screen is off so it's findable on
+   the black void */
+.power-btn.is-off {
+  animation: power-pulse 1.8s steps(8, end) infinite;
+}
+@keyframes power-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(237, 237, 237, 0);
+  }
+  50% {
+    box-shadow: 0 0 14px 2px rgba(237, 237, 237, 0.55);
+  }
+}
+
 /* ------------------------------------------------------------------ */
 /*  Reduced motion — kill all ambient animation                       */
 /* ------------------------------------------------------------------ */
 @media (prefers-reduced-motion: reduce) {
-  .bot-bob,
+  .bot-anim,
+  .bot-leg-l,
+  .bot-leg-r,
+  .bot-leg-f,
+  .bot-leg-b,
+  .bot-arm-s,
+  .bot-zzz,
   .blink,
-  .crt-flicker {
+  .crt-flicker,
+  .power-btn.is-off {
     animation: none !important;
   }
 }

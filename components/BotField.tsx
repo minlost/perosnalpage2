@@ -11,11 +11,15 @@ const COUNT_DESKTOP = 9;
 const COUNT_MOBILE = 4;
 const MOBILE_BP = 720;
 
-const WANDER_MIN = 10; // px/s — slow, lots of empty space
-const WANDER_MAX = 26;
-const STEER = 1.6; // how hard a bot eases toward its heading (per sec)
-const HEADING_MIN = 2.2; // sec before picking a new direction
-const HEADING_MAX = 5.5;
+const WANDER_MIN = 12; // px/s — slow stroll, lots of empty space
+const WANDER_MAX = 30;
+const STEER = 2.6; // how smoothly a bot eases toward its target velocity
+const WALK_MIN = 2.4; // sec spent walking before pausing
+const WALK_MAX = 5.5;
+const IDLE_MIN = 1.2; // sec spent idling between walks
+const IDLE_MAX = 3.4;
+const SLEEP_CHANCE = 0.3; // odds an idle turns into a nap
+const WAKE_RADIUS = 180; // cursor distance that wakes a sleeping bot
 
 const MOUSE_RADIUS = 150; // repulsion reach
 const MOUSE_FORCE = 2600; // repulsion strength
@@ -32,7 +36,18 @@ const TAP_TRIGGER = 4; // taps that trigger the spin easter egg
 
 const ROT_STEP = 2; // degrees — quantize rotation for a stepped look
 
+// bots only ever walk along an axis: 0=right 1=down 2=left 3=up
+const CARDINALS = [0, Math.PI / 2, Math.PI, -Math.PI / 2] as const;
+
+// pick the next axis, biased so it rarely reverses 180° straight away and
+// tends to either keep going or make a 90° turn — feels much more natural
+const nextHeadingIdx = (cur: number) => {
+  if (Math.random() < 0.12) return (cur + 2) % 4; // rare U-turn
+  return [cur, (cur + 1) % 4, (cur + 3) % 4][(Math.random() * 3) | 0];
+};
+
 type Mode = "wander" | "drag" | "thrown";
+type Act = "walk" | "idle" | "sleep";
 
 interface Bot {
   x: number;
@@ -42,14 +57,17 @@ interface Bot {
   angle: number; // current rotation, degrees
   spin: number; // angular velocity, deg/s (used when thrown)
   heading: number; // wander direction, radians
-  headingTimer: number;
+  headingIdx: number; // 0..3 index into CARDINALS
   speed: number; // personal wander speed
-  bob: number; // px amplitude already handled in CSS; kept for variety seed
   size: number;
   variant: number;
   special: boolean;
   mode: Mode;
   restTimer: number;
+  act: Act; // autonomous activity: walking / idling / sleeping
+  actTimer: number; // sec left in the current activity
+  dir: "up" | "down" | "left" | "right"; // facing — drives which sprite shows
+  walkDur: number; // current --walk-dur in seconds (cached to avoid churn)
   taps: number;
   lastTap: number;
   el: HTMLDivElement | null;
@@ -61,8 +79,7 @@ interface Spec {
   variant: number;
   special: boolean;
   size: number;
-  delay: number; // idle-bob desync
-  dur: number; // idle-bob duration
+  walkDelay: number; // negative delay so bots step out of phase with each other
 }
 
 interface DragState {
@@ -109,14 +126,14 @@ export default function BotField() {
       const size = special
         ? Math.round(rand(58, 70))
         : Math.round(rand(38, 60));
+      const hi = (Math.random() * 4) | 0;
 
       list.push({
         id: i,
         variant: i % 3,
         special,
         size,
-        delay: rand(0, 1),
-        dur: rand(0.7, 1.3),
+        walkDelay: -rand(0, 1.2),
       });
 
       bots.push({
@@ -126,15 +143,18 @@ export default function BotField() {
         vy: 0,
         angle: 0,
         spin: 0,
-        heading: rand(0, Math.PI * 2),
-        headingTimer: rand(HEADING_MIN, HEADING_MAX),
+        heading: CARDINALS[hi],
+        headingIdx: hi,
         speed: rand(WANDER_MIN, WANDER_MAX),
-        bob: rand(1, 2),
         size,
         variant: i % 3,
         special,
         mode: "wander",
         restTimer: 0,
+        act: "walk",
+        actTimer: rand(WALK_MIN, WALK_MAX),
+        dir: "down",
+        walkDur: -1,
         taps: 0,
         lastTap: 0,
         el: null,
@@ -173,6 +193,8 @@ export default function BotField() {
         d.index = -1;
         return;
       }
+
+      bot.el?.classList.remove("is-panic"); // calm down on release
 
       const tapped = !d.moved && performance.now() - d.downAt < 250;
       if (tapped) {
@@ -239,6 +261,23 @@ export default function BotField() {
 
     let last = performance.now();
 
+    // transition a bot into a new activity and reflect it on the DOM so CSS
+    // can swap the animation (walk cycle / idle breathing / sleep)
+    const applyAct = (b: Bot, act: Act) => {
+      b.act = act;
+      b.el?.setAttribute("data-act", act);
+      if (act === "walk") {
+        b.headingIdx = nextHeadingIdx(b.headingIdx);
+        b.heading = CARDINALS[b.headingIdx];
+        b.actTimer = rand(WALK_MIN, WALK_MAX);
+      } else {
+        // idle / sleep: stand still and face the viewer
+        b.actTimer = act === "idle" ? rand(IDLE_MIN, IDLE_MAX) : 0;
+        b.dir = "down";
+        b.el?.setAttribute("data-dir", "down");
+      }
+    };
+
     const frame = (now: number) => {
       const dt = Math.min((now - last) / 1000, 0.05);
       last = now;
@@ -265,23 +304,50 @@ export default function BotField() {
           b.y = ny;
         } else {
           if (b.mode === "wander") {
-            b.headingTimer -= dt;
-            if (b.headingTimer <= 0) {
-              b.heading += rand(-1.4, 1.4);
-              b.headingTimer = rand(HEADING_MIN, HEADING_MAX);
-            }
-
             if (b.special) {
-              // the odd one is curious: it drifts gently toward the cursor
+              // the odd one never rests: it heads toward the cursor, along
+              // whichever axis the cursor is furthest on
+              if (b.act !== "walk") applyAct(b, "walk");
               if (p.inside) {
-                const ang = Math.atan2(p.y - b.y, p.x - b.x);
-                b.heading = ang;
+                const dx = p.x - b.x;
+                const dy = p.y - b.y;
+                if (Math.abs(dx) > Math.abs(dy)) {
+                  b.headingIdx = dx < 0 ? 2 : 0;
+                } else {
+                  b.headingIdx = dy < 0 ? 3 : 1;
+                }
+                b.heading = CARDINALS[b.headingIdx];
                 b.speed = WANDER_MAX * 1.15;
+              }
+            } else {
+              // walk -> idle -> (sleep | walk) state machine
+              b.actTimer -= dt;
+              if (b.act === "walk") {
+                if (b.actTimer <= 0) applyAct(b, "idle");
+              } else if (b.act === "idle") {
+                if (b.actTimer <= 0)
+                  applyAct(b, Math.random() < SLEEP_CHANCE ? "sleep" : "walk");
+              } else {
+                // sleeping — wake and scurry away if the cursor gets close
+                if (p.inside) {
+                  const dx = b.x - p.x;
+                  const dy = b.y - p.y;
+                  if (dx * dx + dy * dy < WAKE_RADIUS * WAKE_RADIUS) {
+                    applyAct(b, "walk");
+                    if (Math.abs(dx) > Math.abs(dy)) {
+                      b.headingIdx = dx > 0 ? 0 : 2; // flee horizontally
+                    } else {
+                      b.headingIdx = dy > 0 ? 1 : 3; // flee vertically
+                    }
+                    b.heading = CARDINALS[b.headingIdx];
+                  }
+                }
               }
             }
 
-            const dvx = Math.cos(b.heading) * b.speed;
-            const dvy = Math.sin(b.heading) * b.speed;
+            const targetSpeed = b.act === "walk" ? b.speed : 0;
+            const dvx = Math.cos(b.heading) * targetSpeed;
+            const dvy = Math.sin(b.heading) * targetSpeed;
             const s = Math.min(1, STEER * dt);
             b.vx += (dvx - b.vx) * s;
             b.vy += (dvy - b.vy) * s;
@@ -296,7 +362,7 @@ export default function BotField() {
                 b.mode = "wander";
                 b.restTimer = 0;
                 b.spin = 0;
-                b.heading = Math.atan2(b.vy, b.vx) || rand(0, Math.PI * 2);
+                applyAct(b, "walk"); // get back on its feet and stroll off
               }
             } else {
               b.restTimer = 0;
@@ -336,6 +402,15 @@ export default function BotField() {
             b.vy -= (b.y - (h - m)) * 8 * dt;
             b.vy *= 0.8;
           }
+
+          // walking into an edge? turn back inward instead of grinding on it
+          if (b.mode === "wander" && b.act === "walk") {
+            if (b.x < m && b.headingIdx === 2) b.headingIdx = 0;
+            else if (b.x > w - m && b.headingIdx === 0) b.headingIdx = 2;
+            if (b.y < m && b.headingIdx === 3) b.headingIdx = 1;
+            else if (b.y > h - m && b.headingIdx === 1) b.headingIdx = 3;
+            b.heading = CARDINALS[b.headingIdx];
+          }
         }
 
         // rotation: gentle tilt from horizontal motion, real spin when thrown
@@ -343,7 +418,9 @@ export default function BotField() {
           b.angle += b.spin * dt;
           b.spin *= Math.exp(-1.4 * dt);
         } else {
-          const tilt = clamp(b.vx * 0.18, -12, 12);
+          // gentle lean in the walk direction (the sprite already conveys
+          // facing, so keep this subtle)
+          const tilt = clamp(b.vx * 0.08, -5, 5);
           b.angle += (tilt - b.angle) * Math.min(1, 4 * dt);
         }
 
@@ -367,6 +444,30 @@ export default function BotField() {
           }
         } else if (b.pupils.length) {
           for (const pu of b.pupils) pu.style.transform = "translate(0,0)";
+        }
+
+        const sp = Math.hypot(b.vx, b.vy);
+
+        // pick the facing sprite from the dominant axis of motion; keep the
+        // last facing while standing (or while grabbed — it faces us, panicking)
+        if (sp > 6 && b.mode !== "drag") {
+          const ax = Math.abs(b.vx);
+          const ay = Math.abs(b.vy);
+          const dir =
+            ax > ay ? (b.vx < 0 ? "left" : "right") : b.vy < 0 ? "up" : "down";
+          if (dir !== b.dir) {
+            b.dir = dir;
+            b.el?.setAttribute("data-dir", dir);
+          }
+        }
+
+        // match the walk-cycle tempo to how fast the bot is actually moving:
+        // strolling -> brisk steps, standing -> slow idle shuffle
+        let dur = sp < 4 ? 1.5 : clamp(0.9 - (sp - 4) * 0.02, 0.4, 0.9);
+        dur = Math.round(dur * 20) / 20; // bucket to 0.05s to avoid restart churn
+        if (dur !== b.walkDur) {
+          b.walkDur = dur;
+          b.el?.style.setProperty("--walk-dur", `${dur}s`);
         }
 
         // commit transform — quantize for the stepped, low-res feel
@@ -418,6 +519,14 @@ export default function BotField() {
     };
     bot.mode = "drag";
     bot.spin = 0;
+
+    // freak out: wake up, face the viewer and flail until released
+    bot.act = "walk";
+    bot.actTimer = rand(WALK_MIN, WALK_MAX);
+    bot.dir = "down";
+    bot.el?.setAttribute("data-act", "walk");
+    bot.el?.setAttribute("data-dir", "down");
+    bot.el?.classList.add("is-panic");
   };
 
   return (
@@ -429,6 +538,8 @@ export default function BotField() {
         <div
           key={s.id}
           className="bot pointer-events-auto"
+          data-dir="down"
+          data-act="walk"
           style={{ width: s.size, height: s.size }}
           onPointerDown={(e) => startDrag(e, i)}
           ref={(el) => {
@@ -447,15 +558,19 @@ export default function BotField() {
           }}
         >
           <div
-            className={reduced ? "" : "bot-bob h-full w-full"}
+            className={reduced ? "h-full w-full" : "bot-anim"}
             style={
               reduced
-                ? { width: "100%", height: "100%" }
-                : { animationDelay: `${s.delay}s`, animationDuration: `${s.dur}s` }
+                ? undefined
+                : ({ "--walk-delay": `${s.walkDelay}s` } as React.CSSProperties)
             }
           >
             <RobotSprite variant={s.variant} special={s.special} />
           </div>
+          {/* sleep "z" — only visible while napping (CSS) */}
+          <span className="bot-zzz font-pixel" aria-hidden="true">
+            z
+          </span>
         </div>
       ))}
     </div>
