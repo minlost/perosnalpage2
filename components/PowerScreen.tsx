@@ -18,7 +18,7 @@ const ANIM_MS = 600;
  * shutdown and gives you the way back in.
  */
 export default function PowerScreen({ children }: { children: React.ReactNode }) {
-  const [phase, setPhase] = useState<Phase>("on");
+  const [phase, setPhase] = useState<Phase>("off");
   const timer = useRef<number | null>(null);
 
   const offAnim = phase === "powering-off";
@@ -49,6 +49,14 @@ export default function PowerScreen({ children }: { children: React.ReactNode })
     }
     setPhase(phase === "on" ? "powering-off" : "powering-on");
   }, [phase]);
+
+  useEffect(() => {
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const t = window.setTimeout(() => {
+      setPhase(reduce ? "on" : "powering-on");
+    }, 450);
+    return () => window.clearTimeout(t);
+  }, []);
 
   // safety net: finalize even if animationend never lands (e.g. the tab was
   // backgrounded mid-collapse and the animation got dropped)
@@ -93,9 +101,9 @@ export default function PowerScreen({ children }: { children: React.ReactNode })
       <button
         type="button"
         onClick={toggle}
-        aria-label={turningOff ? "vypnout obrazovku" : "zapnout obrazovku"}
+        aria-label={turningOff ? "turn screen off" : "turn screen on"}
         aria-pressed={isOff}
-        className={`power-btn pointer-events-auto fixed right-4 top-4 z-[70] flex items-center gap-1.5 border-2 border-[var(--color-ink)] bg-[var(--color-void)] px-2.5 py-1 font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--color-ink)] transition-colors hover:bg-[var(--color-ink)] hover:text-[var(--color-void)] ${
+        className={`power-btn pointer-events-auto fixed right-4 top-4 z-[70] flex cursor-pointer items-center gap-1.5 border-2 border-[var(--color-ink)] bg-[var(--color-void)] px-2.5 py-1 font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--color-ink)] transition-colors hover:bg-[var(--color-ink)] hover:text-[var(--color-void)] ${
           isOff ? "is-off" : ""
         }`}
       >

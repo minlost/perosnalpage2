@@ -18,19 +18,19 @@ interface Fx {
 }
 
 const FX: Record<string, Fx> = {
-  blur: { cls: "fx-blur", layer: "stage", desc: "rozostří obrazovku" },
-  invert: { cls: "fx-invert", layer: "stage", desc: "invertuje barvy" },
-  rave: { cls: "fx-rave", layer: "stage", desc: "barevné blikání / strobo" },
-  green: { cls: "fx-green", layer: "stage", desc: "zelený fosfor (P1)" },
-  amber: { cls: "fx-amber", layer: "stage", desc: "jantarový fosfor" },
-  disco: { cls: "fx-disco", layer: "warp", desc: "barevná disco vlna" },
-  crt: { cls: "fx-crt", layer: "stage", desc: "tvrdý CRT režim" },
-  glitch: { cls: "fx-glitch", layer: "warp", desc: "porucha signálu" },
-  shake: { cls: "fx-shake", layer: "warp", desc: "třesení obrazem" },
-  spin: { cls: "fx-spin", layer: "warp", desc: "roztočí místnost" },
-  flip: { cls: "fx-flip", layer: "warp", desc: "vzhůru nohama" },
+  blur: { cls: "fx-blur", layer: "stage", desc: "blur the screen" },
+  invert: { cls: "fx-invert", layer: "stage", desc: "invert colors" },
+  rave: { cls: "fx-rave", layer: "stage", desc: "color flicker / strobe" },
+  green: { cls: "fx-green", layer: "stage", desc: "green phosphor (P1)" },
+  amber: { cls: "fx-amber", layer: "stage", desc: "amber phosphor" },
+  disco: { cls: "fx-disco", layer: "warp", desc: "color disco wave" },
+  crt: { cls: "fx-crt", layer: "stage", desc: "hard CRT mode" },
+  glitch: { cls: "fx-glitch", layer: "warp", desc: "signal glitch" },
+  shake: { cls: "fx-shake", layer: "warp", desc: "screen shake" },
+  spin: { cls: "fx-spin", layer: "warp", desc: "spin the room" },
+  flip: { cls: "fx-flip", layer: "warp", desc: "upside down" },
   zoom: { cls: "fx-zoom", layer: "warp", desc: "pixel zoom" },
-  matrix: { cls: "", layer: "stage", desc: "padající kód" },
+  matrix: { cls: "", layer: "stage", desc: "falling code" },
 };
 
 // effect order used for help + the preset chips
@@ -123,7 +123,7 @@ export default function Terminal() {
     {
       id: 0,
       kind: "sys",
-      text: "console v1.0 — napiš 'help' nebo klikni na příkaz",
+      text: "console v1.0 — type 'help' or click a command",
     },
   ]);
 
@@ -207,11 +207,11 @@ export default function Terminal() {
 
       // help / commands
       if (cmd === "help" || cmd === "?" || cmd === "commands") {
-        push(mk("out", "efekty (přepínají se opětovným zadáním):"));
+        push(mk("out", "effects (toggle by entering them again):"));
         FX_ORDER.forEach((k) =>
           push(mk("out", `  ${k.padEnd(8)} — ${FX[k].desc}`)),
         );
-        push(mk("out", "ostatní: help · clear · reset · whoami"));
+        push(mk("out", "other: help · clear · reset · whoami"));
         return;
       }
       if (cmd === "clear" || cmd === "cls") {
@@ -220,7 +220,7 @@ export default function Terminal() {
       }
       if (cmd === "reset" || cmd === "off") {
         setActive(new Set());
-        push(mk("sys", "všechny efekty vypnuty"));
+        push(mk("sys", "all effects off"));
         return;
       }
       if (cmd === "whoami") {
@@ -242,7 +242,7 @@ export default function Terminal() {
         return;
       }
 
-      push(mk("err", `příkaz nenalezen: ${cmd} (zkus 'help')`));
+      push(mk("err", `command not found: ${cmd} (try 'help')`));
     },
     [push, mk, active],
   );
@@ -307,7 +307,7 @@ export default function Terminal() {
           </span>
           <button
             onClick={() => setOpen(false)}
-            aria-label="zavřít konzoli"
+            aria-label="close console"
             className="px-1 leading-none hover:bg-[var(--color-void)] hover:text-[var(--color-ink)]"
           >
             ×
@@ -366,7 +366,7 @@ export default function Terminal() {
             spellCheck={false}
             autoComplete="off"
             className="w-full bg-transparent text-[var(--color-ink)] caret-[var(--color-ink)] outline-none"
-            placeholder="napiš příkaz…"
+            placeholder="type a command…"
           />
         </form>
       </div>
