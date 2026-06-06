@@ -1,0 +1,153 @@
+@import "tailwindcss";
+
+/* ------------------------------------------------------------------ */
+/*  Theme tokens — strict monochrome, sharp edges, bitmap typography  */
+/* ------------------------------------------------------------------ */
+@theme {
+  --color-void: #000000;
+  --color-ink: #ededed;
+  --color-dim: #8a8a8a;
+  --color-faint: #4a4a4a;
+  --color-line: #1c1c1c;
+
+  --font-pixel: var(--font-silkscreen), ui-monospace, monospace;
+  --font-mono: var(--font-jbmono), ui-monospace, "SF Mono", monospace;
+
+  /* kill rounded corners everywhere — sharp edges only */
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Base                                                              */
+/* ------------------------------------------------------------------ */
+* {
+  border-color: var(--color-line);
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background-color: var(--color-void);
+  color: var(--color-ink);
+  font-family: var(--font-mono);
+  -webkit-font-smoothing: none;
+  font-smooth: never;
+  overflow: hidden; /* single-screen experience, bots own the canvas */
+  overscroll-behavior: none;
+}
+
+::selection {
+  background: var(--color-ink);
+  color: var(--color-void);
+}
+
+/* crisp, low-res rendering for all pixel sprites */
+.pixelated {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  shape-rendering: crispEdges;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Focus ring — keyboard accessible, on-brand (no rounded, no glow)  */
+/* ------------------------------------------------------------------ */
+a:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 4px;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Bot canvas                                                        */
+/* ------------------------------------------------------------------ */
+.bot {
+  position: absolute;
+  top: 0;
+  left: 0;
+  will-change: transform;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  color: var(--color-ink);
+}
+.bot:active {
+  cursor: grabbing;
+}
+
+/* 2-frame stepped idle bob — deliberately chunky, retro-game feel */
+@keyframes idle-bob {
+  0% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(2px);
+  }
+  100% {
+    transform: translateY(0px);
+  }
+}
+.bot-bob {
+  animation: idle-bob 0.9s steps(2, end) infinite;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Terminal blink                                                    */
+/* ------------------------------------------------------------------ */
+@keyframes blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+.blink {
+  animation: blink 1.06s steps(1, end) infinite;
+}
+
+/* ------------------------------------------------------------------ */
+/*  CRT — scanlines + ultra-subtle flicker (texture, not a gradient)  */
+/* ------------------------------------------------------------------ */
+.crt-scanlines {
+  background-image: repeating-linear-gradient(
+    0deg,
+    rgba(255, 255, 255, 0.025) 0px,
+    rgba(255, 255, 255, 0.025) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+@keyframes crt-flicker {
+  0% {
+    opacity: 0.9;
+  }
+  50% {
+    opacity: 0.96;
+  }
+  100% {
+    opacity: 0.92;
+  }
+}
+.crt-flicker {
+  animation: crt-flicker 4.2s steps(6, end) infinite;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Reduced motion — kill all ambient animation                       */
+/* ------------------------------------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  .bot-bob,
+  .blink,
+  .crt-flicker {
+    animation: none !important;
+  }
+}
