@@ -33,9 +33,12 @@ export default function Hero() {
           </h1>
         </Reveal>
 
-        {/* developer intro */}
+        {/* name + developer intro */}
         <Reveal delay={0.24}>
-          <p className="mt-8 max-w-md font-mono text-sm leading-relaxed text-[var(--color-dim)] sm:text-base">
+          <p className="mt-8 font-mono text-sm uppercase tracking-[0.25em] text-[var(--color-ink)] sm:text-base">
+            {site.name}
+          </p>
+          <p className="mt-2 max-w-md font-mono text-sm leading-relaxed text-[var(--color-dim)] sm:text-base">
             {site.intro}
           </p>
         </Reveal>

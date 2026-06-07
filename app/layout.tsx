@@ -12,7 +12,7 @@ const silkscreen = Silkscreen({
 
 const jbMono = JetBrains_Mono({
   weight: ["400", "500", "700"],
-  subsets: ["latin"],
+  subsets: ["latin", "latin-ext"],
   variable: "--font-jbmono",
   display: "swap",
 });
