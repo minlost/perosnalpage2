@@ -365,7 +365,7 @@ export default function Terminal() {
             onKeyDown={onInputKey}
             spellCheck={false}
             autoComplete="off"
-            className="w-full bg-transparent text-[var(--color-ink)] caret-[var(--color-ink)] outline-none"
+            className="console-input w-full bg-transparent text-[var(--color-ink)] caret-[var(--color-ink)] outline-none"
             placeholder="type a command…"
           />
         </form>

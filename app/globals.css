@@ -63,6 +63,14 @@ button:focus-visible {
   outline-offset: 4px;
 }
 
+/* On touch devices iOS auto-zooms when focusing an input below 16px. Bump the
+   console field to 16px there only, so the desktop 11px look is preserved. */
+@media (pointer: coarse) {
+  .console-input {
+    font-size: 16px;
+  }
+}
+
 /* ------------------------------------------------------------------ */
 /*  Bot canvas                                                        */
 /* ------------------------------------------------------------------ */

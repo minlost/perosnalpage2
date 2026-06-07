@@ -508,6 +508,13 @@ export default function BotField() {
     e.preventDefault();
     (e.target as Element).setPointerCapture?.(e.pointerId);
 
+    // seed the pointer with the grab position; on touch no pointermove has
+    // fired yet, so without this the first drag frame springs toward the
+    // off-screen sentinel (-9999) and the bot visibly jumps before snapping back
+    pointer.current.x = e.clientX;
+    pointer.current.y = e.clientY;
+    pointer.current.inside = true;
+
     drag.current = {
       index,
       ox: e.clientX - bot.x,
